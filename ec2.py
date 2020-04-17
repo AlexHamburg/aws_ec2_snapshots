@@ -1,4 +1,5 @@
 import boto3
+import botocore
 import click
 
 session = boto3.Session(profile_name="developer")
@@ -104,14 +105,27 @@ def stop_ec2_volumes(project):
 
 @instances.command("snapshot")
 @click.option("--project", default=None, help="Only instances for project (tag Project:<name>)")
-def stop_ec2_instances(project):
+def snapshot_ec2_instances(project):
     "Create snapshots of volumes of EC2 instances"
     the_instances = list_ec2_instaces(project)
 
     for i in the_instances:
+        try:
+            print("Stopping {0}...".format(i.id))
+            i.stop()
+        except botocore.exceptions.ClientError as e:
+            print("Could not stop instance {0}.".format(i.id) + str(e))
+        i.wait_until_stopped()
         for v in i.volumes.all():
-            print("Snapshot {0}...".format(v.id))
+            print("Snapshot for volume {0}, instance {1}...".format(v.id, i.id))
             v.create_snapshot()
+        print("Start {0}...".format(i.id))
+        i.start()
+        try:
+            print("Start {0}...".format(i.id))
+            i.start()
+        except botocore.exceptions.ClientError as e:
+            print("Could not start instance {0}.".format(i.id) + str(e))
 
 if __name__ == "__main__":
     cli()
